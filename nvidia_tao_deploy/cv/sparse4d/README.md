@@ -9,8 +9,8 @@ Deploy image; the MSDA plugin must be built separately for the deployment runtim
 
 - TensorRT 10.x, PyCUDA and a compatible NVIDIA GPU/runtime.
 - A trusted, locally installed `nv::MSDA` plugin library built for that runtime.
-  Build the library from the [MSDA source and build target](../../../plugins/sparse4d/msda/README.md)
-  at the repository root, then supply its absolute path and SHA256.
+  Build the library using the [MSDA source and build instructions](msda_fp16/README.md),
+  then supply its absolute path and SHA256.
   The container does not bundle a compiled plugin binary.
   Before every model build, generated FP32/FP16 probes check that the registered
   plugin rejects NaN, infinity, zero, one and out-of-bounds sampling coordinates.

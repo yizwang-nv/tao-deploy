@@ -163,8 +163,14 @@ __global__ void deformable_aggregation_nearest_kernel_fp32(
     for(int ipoints_by_cams = warp_base_points_index; ipoints_by_cams < points_by_cams && ipoints_by_cams < warp_base_points_index + points_per_warp; ++ipoints_by_cams){
       const int loc_offset = anchor_index * points_by_cams + ipoints_by_cams;
       const float2 loc = cached_locations[ipoints_by_cams - ichunk * chunk_size];
-      // Accept only finite coordinates strictly inside the image. NaN fails >/<.
-      if (!(loc.x > 0 && loc.x < 1 && loc.y > 0 && loc.y < 1)) continue;
+      // Require a positively valid location rather than detecting an invalid one.
+      // Written as a rejected-unless-proven-valid test because every comparison
+      // against NaN is false: the previous form (loc.x <= 0 || ... ) tripped on
+      // nothing for a NaN, so the location was sampled and accumulated, leaving
+      // this anchor's whole embedding non-finite. A NaN projection is exactly as
+      // invalid as the +/-inf one it is produced alongside - both come from a
+      // keypoint behind the camera - and must be skipped the same way.
+      if(!(loc.x > 0 && loc.x < 1 && loc.y > 0 && loc.y < 1)) continue;
 
       const int32_t ipoints = ipoints_by_cams / num_cams;
       const int32_t icamera = ipoints_by_cams % num_cams;
@@ -222,9 +228,9 @@ __global__ void deformable_aggregation_nearest_kernel_fp16(
     for(int ipoints_by_cams = warp_base_points_index; ipoints_by_cams < points_by_cams && ipoints_by_cams < warp_base_points_index + points_per_warp; ++ipoints_by_cams){
       const int loc_offset = anchor_index * points_by_cams + ipoints_by_cams;
       const half2 loc = cached_locations[ipoints_by_cams - ichunk * chunk_size];
-      // Ordered comparisons reject NaN as well as boundaries and infinity.
-      if (!(__hgt(loc.x, __float2half(0)) && __hlt(loc.x, __float2half(1)) &&
-            __hgt(loc.y, __float2half(0)) && __hlt(loc.y, __float2half(1)))) continue;
+      // See the fp32 kernel above: rejected unless proven valid, so that a NaN -
+      // which satisfies no comparison - is skipped rather than accumulated.
+      if(!(__hgt(loc.x, 0) && __hlt(loc.x, 1) && __hgt(loc.y, 0) && __hlt(loc.y, 1))) continue;
 
       const int32_t ipoints = ipoints_by_cams / num_cams;
       const int32_t icamera = ipoints_by_cams % num_cams;
